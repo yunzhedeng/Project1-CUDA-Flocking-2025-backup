@@ -469,11 +469,11 @@ __global__ void kernUpdateVelNeighborSearchScattered(
 
   glm::vec3 thisPos = pos[index];
 
+  /*8-cell loop
   int gridX = (int)((thisPos.x - gridMin.x) * inverseCellWidth);
   int gridY = (int)((thisPos.y - gridMin.y) * inverseCellWidth);
   int gridZ = (int)((thisPos.z - gridMin.z) * inverseCellWidth);
 
-  
   float cellCenterX = gridMin.x + (gridX + 0.5f) * cellWidth;
   float cellCenterY = gridMin.y + (gridY + 0.5f) * cellWidth;
   float cellCenterZ = gridMin.z + (gridZ + 0.5f) * cellWidth;
@@ -485,7 +485,32 @@ __global__ void kernUpdateVelNeighborSearchScattered(
   int xCells[2] = {gridX, neighborX};
   int yCells[2] = {gridY, neighborY};
   int zCells[2] = {gridZ, neighborZ};
-  
+  */
+
+  //Grid-looping Scattered begins
+  float maxDistance = fmaxf(
+    rule1Distance,
+    fmaxf(rule2Distance, rule3Distance)
+  );
+
+  int minX = (int)((thisPos.x - maxDistance - gridMin.x) * inverseCellWidth);
+  int maxX = (int)((thisPos.x + maxDistance - gridMin.x) * inverseCellWidth);
+
+  int minY = (int)((thisPos.y - maxDistance - gridMin.y) * inverseCellWidth);
+  int maxY = (int)((thisPos.y + maxDistance - gridMin.y) * inverseCellWidth);
+
+  int minZ = (int)((thisPos.z - maxDistance - gridMin.z) * inverseCellWidth);
+  int maxZ = (int)((thisPos.z + maxDistance - gridMin.z) * inverseCellWidth);
+
+  //Clamping
+  if (minX < 0) minX = 0;
+  if (minY < 0) minY = 0;
+  if (minZ < 0) minZ = 0;
+
+  if (maxX >= gridResolution) maxX = gridResolution - 1;
+  if (maxY >= gridResolution) maxY = gridResolution - 1;
+  if (maxZ >= gridResolution) maxZ = gridResolution - 1;
+  //Grid-looping Scattered ends
 
   glm::vec3 perceivedCenter(0.0f);
   glm::vec3 separation(0.0f);
@@ -494,7 +519,7 @@ __global__ void kernUpdateVelNeighborSearchScattered(
   int rule1Neighbors = 0;
   int rule3Neighbors = 0;
 
-  
+  /*8-cell Scattered
   for (int xi = 0; xi < 2; xi++) {
     for (int yi = 0; yi < 2; yi++) {
         for (int zi = 0; zi < 2; zi++) {
@@ -502,12 +527,18 @@ __global__ void kernUpdateVelNeighborSearchScattered(
             int x = xCells[xi];
             int y = yCells[yi];
             int z = zCells[zi];
-
+  */
+  //Grid-looping Scattered begins
+  for (int z = minZ; z <= maxZ; z++) {
+    for (int y = minY; y <= maxY; y++) {
+        for (int x = minX; x <= maxX; x++) {
+  //Grid-looping Scattered ends
+            /*8-cell loop
             if (x < 0 || x >= gridResolution ||
                 y < 0 || y >= gridResolution ||
                 z < 0 || z >= gridResolution) {
                 continue;
-            }
+            }*/
 
             int cellIndex = gridIndex3Dto1D(x, y, z, gridResolution);
 
@@ -674,7 +705,7 @@ __global__ void kernUpdateVelNeighborSearchCoherent(
   }
 
   glm::vec3 thisPos = pos[index];
-
+  /*8-Cell Coherent
   int gridX = (int)((thisPos.x - gridMin.x) * inverseCellWidth);
   int gridY = (int)((thisPos.y - gridMin.y) * inverseCellWidth);
   int gridZ = (int)((thisPos.z - gridMin.z) * inverseCellWidth);
@@ -690,6 +721,32 @@ __global__ void kernUpdateVelNeighborSearchCoherent(
   int xCells[2] = { gridX, neighborX };
   int yCells[2] = { gridY, neighborY };
   int zCells[2] = { gridZ, neighborZ };
+  */
+  
+  // Grid-looping Coherent begins
+  float maxDistance = fmaxf(
+      rule1Distance,
+      fmaxf(rule2Distance, rule3Distance)
+  );
+
+  int minX = (int)((thisPos.x - maxDistance - gridMin.x) * inverseCellWidth);
+  int maxX = (int)((thisPos.x + maxDistance - gridMin.x) * inverseCellWidth);
+
+  int minY = (int)((thisPos.y - maxDistance - gridMin.y) * inverseCellWidth);
+  int maxY = (int)((thisPos.y + maxDistance - gridMin.y) * inverseCellWidth);
+
+  int minZ = (int)((thisPos.z - maxDistance - gridMin.z) * inverseCellWidth);
+  int maxZ = (int)((thisPos.z + maxDistance - gridMin.z) * inverseCellWidth);
+
+  // Clamping
+  if (minX < 0) minX = 0;
+  if (minY < 0) minY = 0;
+  if (minZ < 0) minZ = 0;
+
+  if (maxX >= gridResolution) maxX = gridResolution - 1;
+  if (maxY >= gridResolution) maxY = gridResolution - 1;
+  if (maxZ >= gridResolution) maxZ = gridResolution - 1;
+  // Grid-looping Coherent ends
 
   glm::vec3 perceivedCenter(0.0f);
   glm::vec3 separation(0.0f);
@@ -698,8 +755,7 @@ __global__ void kernUpdateVelNeighborSearchCoherent(
   int rule1Neighbors = 0;
   int rule3Neighbors = 0;
 
-  // z outer, y middle, x inner:
-  // x is the fastest-varying dimension in gridIndex3Dto1D
+  /*8-cell Coherent
   for (int zi = 0; zi < 2; zi++) {
       for (int yi = 0; yi < 2; yi++) {
           for (int xi = 0; xi < 2; xi++) {
@@ -713,7 +769,12 @@ __global__ void kernUpdateVelNeighborSearchCoherent(
                   z < 0 || z >= gridResolution) {
                   continue;
               }
-
+  */
+  //Grid-looping Coherent begins
+  for (int z = minZ; z <= maxZ; z++) {
+    for (int y = minY; y <= maxY; y++) {
+        for (int x = minX; x <= maxX; x++) {
+  //Grid-looping Coherent ends
               int cellIndex = gridIndex3Dto1D(x, y, z, gridResolution);
 
               int start = gridCellStartIndices[cellIndex];

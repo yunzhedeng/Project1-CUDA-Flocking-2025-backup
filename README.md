@@ -31,7 +31,7 @@ Project 1 - Flocking**
 
 #### 1.1.2 Performance Plot
 
-![Framerate vs Number of Boids - Visualization Enabled](own_images/fps_vs_boids_visualization_on.png)
+<img src="own_images/fps_vs_boids_visualization_on.png" width="700">
 
 ### 1.2 Visualization Disabled
 
@@ -57,7 +57,7 @@ Project 1 - Flocking**
 
 #### 1.2.2 Performance Plot
 
-![Framerate vs Number of Boids - Visualization Disabled](own_images/fps_vs_boids_visualization_off.png)
+<img src="own_images/fps_vs_boids_visualization_off.png" width="700">
 
 ### 1.3 Analysis
 
@@ -99,7 +99,7 @@ For comparison, the cell width was reduced to 1× the maximum neighborhood dista
 
 ### 2.2 Performance Plot
 
-![8-Cell vs 27-Cell Search Performance](own_images/fps_8cell_vs_27cell.png)
+<img src="own_images/fps_8cell_vs_27cell.png" width="700">
 
 ### 2.3 Analysis
 
@@ -140,7 +140,7 @@ For this experiment:
 
 ### 3.2 Performance Plot
 
-![Framerate vs Block Size](own_images/fps_vs_block_size.png)
+<img src="own_images/fps_vs_block_size.png" width="700">
 
 ### 3.3 Analysis
 
