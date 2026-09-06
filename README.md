@@ -148,6 +148,42 @@ For this experiment:
 
 A: From the graph, increasing the block size generally lowers the performance of the naive and scattered grid implementations. The scattered grid shows the biggest drop, from about 1575 FPS at block size 32 to about 1074 FPS at 512. The naive version also decreases, but not as much. The coherent grid is much more stable. Its performance stays around 1550–1590 FPS for block sizes from 64 to 512, with 64 giving the best result. Because the total number of boids stays the same, using a larger block size means fewer blocks are needed. This affects how the GPU schedules the work. From the results, different implementations react differently to block size, while the coherent grid stays almost the same for most block sizes.
 
+## 4. Grid-Looping Optimization (Extra Credit)
+
+### 4.1 Experimental Data
+
+#### Raw FPS Measurements (3 Runs)
+
+| Number of Boids |  Run 1 |  Run 2 |  Run 3 | Average FPS |
+| --------------: | -----: | -----: | -----: | ----------: |
+|           1,000 | 1400.0 | 1495.7 | 1458.4 |      1451.4 |
+|           5,000 | 1472.4 | 1457.6 | 1466.4 |      1465.5 |
+|          10,000 | 1304.4 | 1306.9 | 1301.8 |      1304.4 |
+|          20,000 | 1363.8 | 1338.7 | 1331.0 |      1344.5 |
+
+#### Coherent Baseline vs. Grid-Looping
+
+| Number of Boids | Coherent Baseline | Coherent Grid-Looping |
+| --------------: | ----------------: | --------------------: |
+|           1,000 |            1846.4 |                1451.4 |
+|           5,000 |            1555.6 |                1465.5 |
+|          10,000 |            1513.4 |                1304.4 |
+|          20,000 |            1542.6 |                1344.5 |
+
+### 4.2 Coherent Baseline vs. Grid-Looping Performance Graph
+
+<img src="own_images/fps_coherent_baseline_vs_grid_looping.png" width="700">
+
+### 4.3 Analysis
+
+From the graph, the grid-looping version is slower than the coherent baseline at every tested boid count. The gap is especially large at 1,000 and 10,000 boids. The grid-looping version is more flexible because it calculates the search range instead of using a fixed 8-cell search. However, this also adds extra work for each boid, such as calculating the min and max cell indices and looping over a dynamic range. In this test, the extra work from grid-looping ended up making the program slower overall.
+
+## 5. Shared-Memory Optimization (Extra Credit)
+
+### 5.1 Experimental Data
+
+#### Raw FPS Measurements (3 Runs)
+
 ## Build Notes
 
 `CMakeLists.txt` was modified to fix CUDA build issues on Windows. The CUDA toolkit include directory was added, `CUDAToolkit` was explicitly located, and `CUDA::cudart` was linked to the executable.

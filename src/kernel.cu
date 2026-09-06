@@ -47,7 +47,7 @@ void checkCUDAError(const char *msg, int line = -1) {
 *****************/
 
 /*! Block size used for CUDA kernel launch. */
-#define blockSize 512
+#define blockSize 128
 
 // LOOK-1.2 Parameters for the boids algorithm.
 // These worked well in our reference implementation.
@@ -848,6 +848,204 @@ __global__ void kernUpdateVelNeighborSearchCoherent(
   vel2[index] = newVelocity;
 }
 
+__global__ void kernUpdateVelNeighborSearchCoherentShared(
+    int N,
+    int gridResolution,
+    glm::vec3 gridMin,
+    float inverseCellWidth,
+    float cellWidth,
+    int *gridCellStartIndices,
+    int *gridCellEndIndices,
+    glm::vec3 *pos,
+    glm::vec3 *vel1,
+    glm::vec3 *vel2)
+{
+    int currentCellIndex = blockIdx.x;
+
+    int gridCellCount = gridResolution * gridResolution * gridResolution;
+
+    if (currentCellIndex >= gridCellCount) {
+        return;
+    }
+
+    int currentStart = gridCellStartIndices[currentCellIndex];
+
+    int currentEnd = gridCellEndIndices[currentCellIndex];
+    if (currentStart == -1 || currentEnd == -1) {
+        return;
+    }
+    int cellsPerPlane = gridResolution * gridResolution;
+
+    int currentZ = currentCellIndex / cellsPerPlane;
+    int remainder = currentCellIndex % cellsPerPlane;
+    int currentY = remainder / gridResolution;
+    int currentX = remainder % gridResolution;
+
+    float maxDistance = fmaxf(rule1Distance, fmaxf(rule2Distance, rule3Distance));
+
+    float cellMinX = gridMin.x + currentX * cellWidth;
+    float cellMaxX = cellMinX + cellWidth;
+    float cellMinY = gridMin.y + currentY * cellWidth;
+    float cellMaxY = cellMinY + cellWidth;
+    float cellMinZ = gridMin.z + currentZ * cellWidth;
+    float cellMaxZ = cellMinZ + cellWidth;
+
+    int minX = (int)((cellMinX - maxDistance - gridMin.x) * inverseCellWidth);
+    int maxX = (int)((cellMaxX + maxDistance - gridMin.x) * inverseCellWidth);
+    int minY = (int)((cellMinY - maxDistance - gridMin.y) * inverseCellWidth);
+    int maxY = (int)((cellMaxY + maxDistance - gridMin.y) * inverseCellWidth);
+    int minZ = (int)((cellMinZ - maxDistance - gridMin.z) * inverseCellWidth);
+    int maxZ = (int)((cellMaxZ + maxDistance - gridMin.z) * inverseCellWidth);
+
+    // Clamp
+    if (minX < 0) minX = 0;
+    if (minY < 0) minY = 0;
+    if (minZ < 0) minZ = 0;
+
+    if (maxX >= gridResolution) maxX = gridResolution - 1;
+    if (maxY >= gridResolution) maxY = gridResolution - 1;
+    if (maxZ >= gridResolution) maxZ = gridResolution - 1;
+
+    /*
+     * Shared memory layout:
+     *
+     * sharedPos[0 ... blockDim.x-1]
+     * sharedVel[0 ... blockDim.x-1]
+     */
+    extern __shared__ glm::vec3 sharedData[];
+
+    glm::vec3 *sharedPos = sharedData;
+
+    glm::vec3 *sharedVel =
+        sharedData + blockDim.x;
+
+    for (
+        int particleBase = currentStart;
+        particleBase < currentEnd;
+        particleBase += blockDim.x)
+    {
+        int particleIndex =
+            particleBase + threadIdx.x;
+
+        bool active =
+            particleIndex < currentEnd
+            && particleIndex < N;
+
+        glm::vec3 thisPos(0.0f);
+
+        glm::vec3 perceivedCenter(0.0f);
+        glm::vec3 separation(0.0f);
+        glm::vec3 perceivedVelocity(0.0f);
+
+        int rule1Neighbors = 0;
+        int rule3Neighbors = 0;
+
+        if (active) {
+            thisPos = pos[particleIndex];
+        }
+
+        for (int z = minZ; z <= maxZ; z++) {
+          for (int y = minY; y <= maxY; y++) {
+            for (int x = minX; x <= maxX; x++) {
+                int neighborCellIndex = gridIndex3Dto1D(x,y,z,gridResolution);
+                
+                int neighborStart = gridCellStartIndices[neighborCellIndex];
+                int neighborEnd = gridCellEndIndices[neighborCellIndex];
+                      
+                if (neighborStart == -1 || neighborEnd == -1)
+                {
+                  continue;
+                }
+
+                for (
+                  int neighborBase = neighborStart;
+                  neighborBase < neighborEnd;
+                  neighborBase += blockDim.x)
+                {
+                  int loadIndex =    neighborBase + threadIdx.x;
+                  if (loadIndex < neighborEnd) {
+                      sharedPos[threadIdx.x] = pos[loadIndex];
+                      sharedVel[threadIdx.x] = vel1[loadIndex];
+                        
+                  }
+                  __syncthreads();
+
+                  int tileCount = neighborEnd - neighborBase;
+
+                  if (tileCount > blockDim.x) {
+                      tileCount = blockDim.x;
+                  }
+
+                  if (active) {
+                      for (int j = 0;   j < tileCount;  j++)
+                      {
+                        int otherIndex = neighborBase + j;
+                    
+                        if (otherIndex == particleIndex)                                                   
+                        {
+                          continue;
+                        }
+
+                        glm::vec3 otherPos =  sharedPos[j];                           
+                        glm::vec3 otherVel = sharedVel[j];
+                            
+                        float distance = glm::distance(thisPos, otherPos);                                                                                        
+                  
+                        // Rule 1
+                        if (distance < rule1Distance)                           
+                        {
+                          perceivedCenter +=  otherPos;                               
+                          rule1Neighbors++;
+                        }
+
+                        // Rule 2
+                        if (distance < rule2Distance)                           
+                        {
+                          separation -= (otherPos -  thisPos);                                                                                                   
+                        }
+
+                        // Rule 3
+                        if ( distance < rule3Distance)                                                       
+                        {
+                          perceivedVelocity += otherVel;                               
+                           rule3Neighbors++;
+                        }
+                      }
+                  }
+                  __syncthreads();
+              }
+          }
+      }
+  }
+        if (active) { glm::vec3 velocityChange(0.0f);          
+            if (rule1Neighbors > 0)
+            {
+              perceivedCenter /= rule1Neighbors;
+              velocityChange += (perceivedCenter - thisPos) * rule1Scale;
+            }
+
+            velocityChange += separation * rule2Scale;
+
+            if (rule3Neighbors > 0)
+            {
+              perceivedVelocity /= rule3Neighbors;
+              velocityChange += perceivedVelocity * rule3Scale;
+            }
+
+            glm::vec3 newVelocity = vel1[particleIndex] + velocityChange;
+            float speed = glm::length(newVelocity);
+
+            if (speed > maxSpeed)
+            {
+              newVelocity = glm::normalize(newVelocity) * maxSpeed;
+            }
+
+            vel2[particleIndex] = newVelocity;
+        }
+        __syncthreads();
+    }
+}
+
 /**
 * Step the entire N-body simulation by `dt` seconds.
 */
@@ -1030,6 +1228,7 @@ void Boids::stepSimulationCoherentGrid(float dt) {
   dev_vel1 = dev_vel2;
   dev_vel2 = tempVel;
 
+  /*
   kernUpdateVelNeighborSearchCoherent<<<fullBlocksPerGrid, blockSize>>>(
       numObjects,
       gridSideCount,
@@ -1042,6 +1241,29 @@ void Boids::stepSimulationCoherentGrid(float dt) {
       dev_vel1,
       dev_vel2
   );
+  */
+
+  size_t sharedMemSize =
+    2 * blockSize * sizeof(glm::vec3);
+
+  kernUpdateVelNeighborSearchCoherentShared<<<
+      gridCellCount,
+      blockSize,
+      sharedMemSize
+  >>>(
+      numObjects,
+      gridSideCount,
+      gridMinimum,
+      gridInverseCellWidth,
+      gridCellWidth,
+      dev_gridCellStartIndices,
+      dev_gridCellEndIndices,
+      dev_pos,
+      dev_vel1,
+      dev_vel2
+  );
+
+
 
   kernUpdatePos<<<fullBlocksPerGrid, blockSize>>>(
       numObjects,
