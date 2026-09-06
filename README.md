@@ -16,6 +16,14 @@ Project 1 - Flocking**
   </tr>
 </table>
 
+## Benchmark Methodology
+
+- Performance tests were run in `x64-Release` mode with V-Sync disabled.
+- FPS was measured using the framerate shown in the application window title.
+- Each result was measured 3 times and the average FPS was used for the plots.
+- Tests without visualization used `VISUALIZE = 0` to measure simulation performance.
+- Unless otherwise noted, the default grid uses a cell width of 2× the maximum neighborhood distance.
+
 ## 1. Framerate vs. Number of Boids
 
 ### 1.1 Visualization Enabled
@@ -161,6 +169,8 @@ A: From the graph, increasing the block size generally lowers the performance of
 
 ## 4. Grid-Looping Optimization (Extra Credit)
 
+The hard-coded 8-cell neighbor search was replaced with a dynamic search range based on the minimum and maximum grid cells within the maximum neighborhood distance.
+
 ### 4.1 Experimental Data
 
 #### Raw FPS Measurements (3 Runs)
@@ -190,6 +200,8 @@ A: From the graph, increasing the block size generally lowers the performance of
 From the graph, the grid-looping version is slower than the coherent baseline at every tested boid count. The gap is especially large at 1,000 and 10,000 boids. The grid-looping version is more flexible because it calculates the search range instead of using a fixed 8-cell search. However, this also adds extra work for each boid, such as calculating the min and max cell indices and looping over a dynamic range. In this test, the extra work from grid-looping ended up making the program slower overall.
 
 ## 5. Shared-Memory Optimization (Extra Credit)
+
+The coherent grid neighbor search was modified so that blocks load neighboring boid positions and velocities into shared memory in batches before applying the flocking rules.
 
 ### 5.1 Experimental Data
 
