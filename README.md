@@ -5,6 +5,17 @@ Project 1 - Flocking**
   * [LinkedIn](https://www.linkedin.com/in/yunzhedeng), [personal website](https://yunzhedeng.com)
 * Tested on:  Windows 11, Intel Core i7-10750H @ 2.60GHz, 16 GB RAM, NVIDIA GeForce RTX 2060 (Personal Computer)
 
+<table>
+  <tr>
+    <td align="center">
+      <img src="own_images/boids_screenshot.png" width="480">
+    </td>
+    <td align="center">
+      <img src="own_images/boids_animation.gif" width="480">
+    </td>
+  </tr>
+</table>
+
 ## 1. Framerate vs. Number of Boids
 
 ### 1.1 Visualization Enabled
@@ -183,6 +194,30 @@ From the graph, the grid-looping version is slower than the coherent baseline at
 ### 5.1 Experimental Data
 
 #### Raw FPS Measurements (3 Runs)
+
+| Number of Boids |  Run 1 |  Run 2 |  Run 3 |      Average FPS |
+| --------------: | -----: | -----: | -----: | ---------------: |
+|           1,000 | 1732.6 | 1724.4 | 1704.5 | **1720.5** |
+|           5,000 | 1612.2 | 1589.9 | 1595.9 | **1599.3** |
+|          10,000 | 1477.9 | 1470.7 | 1406.5 | **1451.7** |
+|          20,000 | 1165.2 | 1171.2 | 1151.9 | **1162.8** |
+
+#### Coherent Baseline vs. Grid-Looping vs. Shared Memory
+
+| Number of Boids | Coherent Baseline | Grid-Looping | Grid-Looping + Shared Memory |
+| --------------: | ----------------: | -----------: | ---------------------------: |
+|           1,000 |            1846.4 |       1451.4 |                       1720.5 |
+|           5,000 |            1555.6 |       1465.5 |                       1599.3 |
+|          10,000 |            1513.4 |       1304.4 |                       1451.7 |
+|          20,000 |            1542.6 |       1344.5 |                       1162.8 |
+
+### 5.2 Coherent Baseline vs. Grid-Looping vs. Shared Memory Performance Graph
+
+<img src="own_images/fps_coherent_grid_looping_shared_memory.png" width="700">
+
+### 5.3 Analysis
+
+From the graph, the shared-memory version performs better than grid-looping alone at 1,000, 5,000, and 10,000 boids. At 5,000 boids, it even slightly outperforms the coherent baseline. However, the performance drops at 20,000 boids. Shared memory cuts down some of the repeated memory reads, but it also adds extra work from synchronization and loading data in batches. Overall, shared memory helped at smaller and medium boid counts, but it did not improve performance for every case.
 
 ## Build Notes
 
